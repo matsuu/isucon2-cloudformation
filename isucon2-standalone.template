@@ -1,0 +1,172 @@
+{
+  "AWSTemplateFormatVersion" : "2010-09-09",
+
+  "Description" : "isucon2-standalone",
+
+  "Parameters" : {
+    "KeyName" : {
+      "Description" : "Name of an existing EC2 KeyPair to enable SSH access to the instance",
+      "Type" : "String"
+    },
+    "InstanceType" : {
+      "Description" : "WebServer EC2 instance type",
+      "Type" : "String",
+      "Default" : "m1.small",
+      "AllowedValues" : [ "t1.micro","m1.small","m1.medium","m1.large","m1.xlarge","m2.xlarge","m2.2xlarge","m2.4xlarge","c1.medium","c1.xlarge","cc1.4xlarge","cc2.8xlarge","cg1.4xlarge"],
+      "ConstraintDescription" : "must be a valid EC2 instance type."
+    }
+  },
+
+  "Mappings" : {
+    "AWSInstanceType2Arch" : {
+      "t1.micro"    : { "Arch" : "64" },
+      "m1.small"    : { "Arch" : "64" },
+      "m1.medium"   : { "Arch" : "64" },
+      "m1.large"    : { "Arch" : "64" },
+      "m1.xlarge"   : { "Arch" : "64" },
+      "m2.xlarge"   : { "Arch" : "64" },
+      "m2.2xlarge"  : { "Arch" : "64" },
+      "m2.4xlarge"  : { "Arch" : "64" },
+      "c1.medium"   : { "Arch" : "64" },
+      "c1.xlarge"   : { "Arch" : "64" },
+      "cc1.4xlarge" : { "Arch" : "64HVM" },
+      "cc2.8xlarge" : { "Arch" : "64HVM" },
+      "cg1.4xlarge" : { "Arch" : "64HVM" }
+    },
+
+    "AWSRegionArch2AMI" : {
+      "us-east-1"      : { "32" : "ami-a0cd60c9", "64" : "ami-aecd60c7", "64HVM" : "ami-a8cd60c1" },
+      "us-west-2"      : { "32" : "ami-46da5576", "64" : "ami-48da5578", "64HVM" : "NOT_YET_SUPPORTED" },
+      "us-west-1"      : { "32" : "ami-7d4c6938", "64" : "ami-734c6936", "64HVM" : "NOT_YET_SUPPORTED" },
+      "eu-west-1"      : { "32" : "ami-61555115", "64" : "ami-6d555119", "64HVM" : "ami-67555113" },
+      "ap-southeast-1" : { "32" : "ami-220b4a70", "64" : "ami-3c0b4a6e", "64HVM" : "NOT_YET_SUPPORTED" },
+      "ap-northeast-1" : { "32" : "ami-2a19aa2b", "64" : "ami-2819aa29", "64HVM" : "NOT_YET_SUPPORTED" },
+      "sa-east-1"      : { "32" : "ami-f836e8e5", "64" : "ami-fe36e8e3", "64HVM" : "NOT_YET_SUPPORTED" }
+    }
+  },
+
+  "Resources" : {
+    "Isucon2Instance" : {
+      "Type" : "AWS::EC2::Instance",
+      "Properties" : {
+        "KeyName" : { "Ref" : "KeyName" },
+        "SecurityGroups" : [ { "Ref" : "InstanceSecurityGroup" } ],
+        "ImageId" : { "Fn::FindInMap" : [ "AWSRegionArch2AMI", { "Ref" : "AWS::Region" },
+                          { "Fn::FindInMap" : [ "AWSInstanceType2Arch", { "Ref" : "InstanceType" }, "Arch" ] } ] },
+        "InstanceType" : { "Ref" : "InstanceType" },
+        "UserData" : { "Fn::Base64" : { "Fn::Join" : ["",[
+            "#!/bin/bash -x","\n",
+            "yum update -y --skip-broken","\n",
+            "yum install -y --skip-broken git httpd mysql-server mysql-devel perl-DBD-MySQL perl-DBI perl-DBD-SQLite perl-parent perl-libwww-perl perl-Module-Build perl-Class-Data-Inheritable perl-YAML perl-JSON perl-JSON-XS perl-Module-CoreList perl-ExtUtils-MakeMaker perl-Module-Install perl-Test-Simple perl-Time-HiRes perl-Net-Server perl-Class-Accessor perl-Devel-StackTrace make gcc","\n",
+            "easy_install supervisor","\n",
+            "useradd isucon","\n",
+            "cd /home/isucon","\n",
+            "git clone git://github.com/tagomoris/isucon2.git","\n",
+            "sed -e '/^innodb/s/^/#/' isucon2/webapp/config/database/my.cnf > /etc/my.cnf","\n",
+            "[ \"`uname -m`\" = \"i686\" ] && arch=x86 || arch=x64","\n",
+            "curl -LO http://nodejs.org/dist/v0.8.14/node-v0.8.14-linux-${arch}.tar.gz","\n",
+            "tar zxf node-*.tar.gz","\n",
+            "cd node-*/","\n",
+            "cp -dpR */ /usr/","\n",
+            "cd ..","\n",
+            "rm -rf node-*","\n",
+            "cd isucon2/tools","\n",
+            "/usr/bin/npm install","\n",
+            "cd http_load_isucon2","\n",
+            "make","\n",
+            "cd ..","\n",
+            "chkconfig mysqld on","\n",
+            "service mysqld start","\n",
+            "cat sql/isumaster.sql | mysql","\n",
+            "cd /home/isucon","\n",
+            "echo 'ProxyPass / http://127.0.0.1:5000/' >> /etc/httpd/conf.d/proxy_server.conf","\n",
+            "echo 'ProxyPassReverse / http://127.0.0.1:5000/' >> /etc/httpd/conf.d/proxy_server.conf","\n",
+            "chkconfig httpd on","\n",
+            "service httpd start","\n",
+            "cd /home/isucon","\n",
+            "cat /usr/lib*/python*/site-packages/supervisor*egg/supervisor/skel/sample.conf > /etc/supervisord.conf","\n",
+            "cat isucon2/webapp/etc/supervisord/isucon.conf >> /etc/supervisord.conf","\n",
+            "cp isucon2/webapp/etc/supervisord_init /etc/init.d/supervisord","\n",
+            "cd isucon2/webapp/perl/","\n",
+            "perl cpanm -lextlib -n --installdeps .","\n",
+            "cd /home/isucon","\n",
+            "cat isucon2/webapp/config/database/isucon2.sql | mysql","\n",
+            "cat isucon2/webapp/config/database/initial_data.sql | mysql","\n",
+            "echo \"CREATE USER 'isucon2app'@'%' IDENTIFIED BY 'isunageruna';\" | mysql","\n",
+            "echo \"GRANT ALL ON isucon2.* TO 'isucon2app'@'%';\" | mysql","\n",
+            "echo \"CREATE USER 'isucon2app'@'localhost' IDENTIFIED BY 'isunageruna';\" | mysql","\n",
+            "echo \"GRANT ALL ON isucon2.* TO 'isucon2app'@'localhost';\" | mysql","\n",
+            "cp -a isucon2/tools tools","\n",
+            "cp -a isucon2/webapp app","\n",
+            "cp -a isucon2/webapp/etc etc","\n",
+            "sed -i -e 's/\"local\"/\"app\"/' -e 's/\"test\"/\"rev\"/' -e 's/localhost/app/' -e 's/Test Server/rev/' -e 's/125.6.159.11/127.0.0.1/' tools/config.json","\n",
+            "sed -i -e '/PATH/,/rbenv init/d' -e '/ISUCON_ENV/s/=.*/=local/' etc/env.sh","\n",
+            "chmod +x etc/env.sh","\n",
+            "chown -R isucon:isucon tools app etc","\n",
+            "rm -rf isucon2","\n",
+            "cat >>/etc/supervisord.conf <<EOF","\n",
+            "","\n",
+            "[program:tools_manager_js]","\n",
+            "directory=/home/isucon/tools","\n",
+            "command=/usr/bin/node manager.js","\n",
+            "user=isucon","\n",
+            "stdout_logfile=/tmp/tools_manager.log","\n",
+            "stderr_logfile=/tmp/tools_manager.log","\n",
+            "autostart=true","\n",
+            "","\n",
+            "[program:tools_agent_js]","\n",
+            "directory=/home/isucon/tools","\n",
+            "command=/usr/bin/node agent.js","\n",
+            "user=isucon","\n",
+            "stdout_logfile=/tmp/tools_agent.log","\n",
+            "stderr_logfile=/tmp/tools_agent.log","\n",
+            "autostart=true","\n",
+            "EOF","\n",
+            "chkconfig supervisord on","\n",
+            "service supervisord start","\n",
+
+            "# All is well so signal success\n",
+            "curl -X PUT -H 'Content-Type:' --data-binary '{\"Status\" : \"SUCCESS\",",
+                                                           "\"Reason\" : \"The Isucon2Instance is ready\",",
+                                                           "\"UniqueId\" : \"Isucon2Instance\",",
+                                                           "\"Data\" : \"Done\"}' ",
+                  "\"", {"Ref" : "WaitHandle"},"\"\n"
+        ]]}}
+      }
+    },
+
+    "InstanceSecurityGroup" : {
+      "Type" : "AWS::EC2::SecurityGroup",
+      "Properties" : {
+        "GroupDescription" : "Enable Access to Reverse Proxy via port 80 and SSH access via port 22",
+        "SecurityGroupIngress" : [ 
+          {"IpProtocol" : "tcp", "FromPort" : "22", "ToPort" : "22", "CidrIp" : "0.0.0.0/0" },
+          {"IpProtocol" : "tcp", "FromPort" : "5000", "ToPort" : "5000", "CidrIp" : "0.0.0.0/0" },
+          {"IpProtocol" : "tcp", "FromPort" : "5001", "ToPort" : "5001", "CidrIp" : "0.0.0.0/0" },
+          {"IpProtocol" : "tcp", "FromPort" : "80", "ToPort" : "80", "CidrIp" : "0.0.0.0/0" }
+        ]
+      }
+    },
+
+    "WaitHandle" : {
+      "Type" : "AWS::CloudFormation::WaitConditionHandle"
+    },
+
+    "WaitCondition" : {
+      "Type" : "AWS::CloudFormation::WaitCondition",
+      "DependsOn" : "Isucon2Instance",
+      "Properties" : {
+        "Handle" : {"Ref" : "WaitHandle"},
+        "Timeout" : "900"
+      }
+    }
+  },
+
+  "Outputs" : {
+    "WebsiteURL" : {
+      "Description" : "The URL for the newly created isucon2 application",
+      "Value" : { "Fn::Join" : ["", [ "http://", { "Fn::GetAtt" : [ "Isucon2Instance", "PublicDnsName" ] }, ":5001" ]]}
+    }
+  }
+}
+
