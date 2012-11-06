@@ -8,8 +8,33 @@
       "Description" : "Name of an existing EC2 KeyPair to enable SSH access to the instance",
       "Type" : "String"
     },
-    "InstanceType" : {
-      "Description" : "Server EC2 instance type",
+
+    "testInstanceType" : {
+      "Description" : "TestServer EC2 instance type",
+      "Type" : "String",
+      "Default" : "m1.small",
+      "AllowedValues" : [ "t1.micro","m1.small","m1.medium","m1.large","m1.xlarge","m2.xlarge","m2.2xlarge","m2.4xlarge","c1.medium","c1.xlarge","cc1.4xlarge","cc2.8xlarge","cg1.4xlarge"],
+      "ConstraintDescription" : "must be a valid EC2 instance type."
+    },
+
+    "revInstanceType" : {
+      "Description" : "ReverseProxy EC2 instance type",
+      "Type" : "String",
+      "Default" : "m1.small",
+      "AllowedValues" : [ "t1.micro","m1.small","m1.medium","m1.large","m1.xlarge","m2.xlarge","m2.2xlarge","m2.4xlarge","c1.medium","c1.xlarge","cc1.4xlarge","cc2.8xlarge","cg1.4xlarge"],
+      "ConstraintDescription" : "must be a valid EC2 instance type."
+    },
+
+    "appInstanceType" : {
+      "Description" : "ApplicationServer EC2 instance type",
+      "Type" : "String",
+      "Default" : "m1.small",
+      "AllowedValues" : [ "t1.micro","m1.small","m1.medium","m1.large","m1.xlarge","m2.xlarge","m2.2xlarge","m2.4xlarge","c1.medium","c1.xlarge","cc1.4xlarge","cc2.8xlarge","cg1.4xlarge"],
+      "ConstraintDescription" : "must be a valid EC2 instance type."
+    },
+
+    "dbInstanceType" : {
+      "Description" : "DatabaseServer EC2 instance type",
       "Type" : "String",
       "Default" : "m1.small",
       "AllowedValues" : [ "t1.micro","m1.small","m1.medium","m1.large","m1.xlarge","m2.xlarge","m2.2xlarge","m2.4xlarge","c1.medium","c1.xlarge","cc1.4xlarge","cc2.8xlarge","cg1.4xlarge"],
@@ -52,8 +77,8 @@
         "KeyName" : { "Ref" : "KeyName" },
         "SecurityGroups" : [ { "Ref" : "InstanceSecurityGroup" } ],
         "ImageId" : { "Fn::FindInMap" : [ "AWSRegionArch2AMI", { "Ref" : "AWS::Region" },
-                          { "Fn::FindInMap" : [ "AWSInstanceType2Arch", { "Ref" : "InstanceType" }, "Arch" ] } ] },
-        "InstanceType" : { "Ref" : "InstanceType" },
+                          { "Fn::FindInMap" : [ "AWSInstanceType2Arch", { "Ref" : "testInstanceType" }, "Arch" ] } ] },
+        "InstanceType" : { "Ref" : "testInstanceType" },
         "UserData" : { "Fn::Base64" : { "Fn::Join" : ["",[
             "#!/bin/bash -x","\n",
 
@@ -126,8 +151,8 @@
         "KeyName" : { "Ref" : "KeyName" },
         "SecurityGroups" : [ { "Ref" : "InstanceSecurityGroup" } ],
         "ImageId" : { "Fn::FindInMap" : [ "AWSRegionArch2AMI", { "Ref" : "AWS::Region" },
-                          { "Fn::FindInMap" : [ "AWSInstanceType2Arch", { "Ref" : "InstanceType" }, "Arch" ] } ] },
-        "InstanceType" : { "Ref" : "InstanceType" },
+                          { "Fn::FindInMap" : [ "AWSInstanceType2Arch", { "Ref" : "revInstanceType" }, "Arch" ] } ] },
+        "InstanceType" : { "Ref" : "revInstanceType" },
         "UserData" : { "Fn::Base64" : { "Fn::Join" : ["",[
             "#!/bin/bash -x","\n",
 
@@ -159,8 +184,8 @@
         "KeyName" : { "Ref" : "KeyName" },
         "SecurityGroups" : [ { "Ref" : "InstanceSecurityGroup" } ],
         "ImageId" : { "Fn::FindInMap" : [ "AWSRegionArch2AMI", { "Ref" : "AWS::Region" },
-                          { "Fn::FindInMap" : [ "AWSInstanceType2Arch", { "Ref" : "InstanceType" }, "Arch" ] } ] },
-        "InstanceType" : { "Ref" : "InstanceType" },
+                          { "Fn::FindInMap" : [ "AWSInstanceType2Arch", { "Ref" : "appInstanceType" }, "Arch" ] } ] },
+        "InstanceType" : { "Ref" : "appInstanceType" },
         "UserData" : { "Fn::Base64" : { "Fn::Join" : ["",[
             "#!/bin/bash -x","\n",
 
@@ -204,8 +229,8 @@
         "KeyName" : { "Ref" : "KeyName" },
         "SecurityGroups" : [ { "Ref" : "InstanceSecurityGroup" } ],
         "ImageId" : { "Fn::FindInMap" : [ "AWSRegionArch2AMI", { "Ref" : "AWS::Region" },
-                          { "Fn::FindInMap" : [ "AWSInstanceType2Arch", { "Ref" : "InstanceType" }, "Arch" ] } ] },
-        "InstanceType" : { "Ref" : "InstanceType" },
+                          { "Fn::FindInMap" : [ "AWSInstanceType2Arch", { "Ref" : "appInstanceType" }, "Arch" ] } ] },
+        "InstanceType" : { "Ref" : "appInstanceType" },
         "UserData" : { "Fn::Base64" : { "Fn::Join" : ["",[
             "#!/bin/bash -x","\n",
 
@@ -249,8 +274,8 @@
         "KeyName" : { "Ref" : "KeyName" },
         "SecurityGroups" : [ { "Ref" : "InstanceSecurityGroup" } ],
         "ImageId" : { "Fn::FindInMap" : [ "AWSRegionArch2AMI", { "Ref" : "AWS::Region" },
-                          { "Fn::FindInMap" : [ "AWSInstanceType2Arch", { "Ref" : "InstanceType" }, "Arch" ] } ] },
-        "InstanceType" : { "Ref" : "InstanceType" },
+                          { "Fn::FindInMap" : [ "AWSInstanceType2Arch", { "Ref" : "dbInstanceType" }, "Arch" ] } ] },
+        "InstanceType" : { "Ref" : "dbInstanceType" },
         "UserData" : { "Fn::Base64" : { "Fn::Join" : ["",[
             "#!/bin/bash -x","\n",
 
