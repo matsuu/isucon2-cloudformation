@@ -66,7 +66,7 @@
             "easy_install supervisor","\n",
             "cd ${home}","\n",
             "git clone git://github.com/tagomoris/isucon2.git","\n",
-            "sed -e '/^innodb/s/^/#/' isucon2/webapp/config/database/my.cnf > /etc/my.cnf","\n",
+            "sed -e '/^innodb_buffer_pool_size/s/=.*/= 128M/' -e '/^max_connections/s/=.*/= 256/' isucon2/webapp/config/database/my.cnf > /etc/my.cnf","\n",
             "[ \"`uname -m`\" = \"i686\" ] && arch=x86 || arch=x64","\n",
             "nodejs_ver=v0.8.14","\n",
             "curl -LO http://nodejs.org/dist/${nodejs_ver}/node-${nodejs_ver}-linux-${arch}.tar.gz","\n",
