@@ -9,7 +9,7 @@
       "Type" : "String"
     },
     "InstanceType" : {
-      "Description" : "WebServer EC2 instance type",
+      "Description" : "Server EC2 instance type",
       "Type" : "String",
       "Default" : "m1.small",
       "AllowedValues" : [ "t1.micro","m1.small","m1.medium","m1.large","m1.xlarge","m2.xlarge","m2.2xlarge","m2.4xlarge","c1.medium","c1.xlarge","cc1.4xlarge","cc2.8xlarge","cg1.4xlarge"],
@@ -149,12 +149,12 @@
     "InstanceSecurityGroup" : {
       "Type" : "AWS::EC2::SecurityGroup",
       "Properties" : {
-        "GroupDescription" : "Enable Access to Reverse Proxy via port 80 and SSH access via port 22",
+        "GroupDescription" : "EC2 Instance access",
         "SecurityGroupIngress" : [ 
           {"IpProtocol" : "tcp", "FromPort" : "22", "ToPort" : "22", "CidrIp" : "0.0.0.0/0" },
+          {"IpProtocol" : "tcp", "FromPort" : "80", "ToPort" : "80", "CidrIp" : "0.0.0.0/0" },
           {"IpProtocol" : "tcp", "FromPort" : "5000", "ToPort" : "5000", "CidrIp" : "0.0.0.0/0" },
-          {"IpProtocol" : "tcp", "FromPort" : "5001", "ToPort" : "5001", "CidrIp" : "0.0.0.0/0" },
-          {"IpProtocol" : "tcp", "FromPort" : "80", "ToPort" : "80", "CidrIp" : "0.0.0.0/0" }
+          {"IpProtocol" : "tcp", "FromPort" : "5001", "ToPort" : "5001", "CidrIp" : "0.0.0.0/0" }
         ]
       }
     },
@@ -174,9 +174,19 @@
   },
 
   "Outputs" : {
-    "WebsiteURL" : {
-      "Description" : "The URL for the newly created isucon2 application",
-      "Value" : { "Fn::Join" : ["", [ "http://", { "Fn::GetAtt" : [ "Isucon2Instance", "PublicDnsName" ] }, ":5001" ]]}
+    "TestServerURL" : {
+      "Description" : "The URL for Test Server",
+      "Value" : { "Fn::Join" : ["", [ "http://", { "Fn::GetAtt" : [ "Isucon2Instance", "PublicDnsName" ] }, ":5001/" ]]}
+    },
+
+    "Isucon2ServerURL" : {
+      "Description" : "The URL for isucon2 Server",
+      "Value" : { "Fn::Join" : ["", [ "http://", { "Fn::GetAtt" : [ "Isucon2Instance", "PublicDnsName" ] }, "/" ]]}
+    },
+
+    "SSH" : {
+      "Description" : "The SSH command for isucon2 Server",
+      "Value" : { "Fn::Join" : ["", [ "ssh -i ", { "Ref" : "KeyName" }, ".pem ec2-user@", { "Fn::GetAtt" : [ "Isucon2Instance", "PublicDnsName" ] } ]]}
     }
   }
 }
