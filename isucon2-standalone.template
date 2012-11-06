@@ -179,6 +179,16 @@
       "Value" : { "Fn::Join" : ["", [ "http://", { "Fn::GetAtt" : [ "Isucon2Instance", "PublicDnsName" ] }, ":5001/" ]]}
     },
 
+    "TestServerManagerAccount" : {
+      "Description" : "Account for manager",
+      "Value" : "manager / foo"
+    },
+
+    "TestServerTeam2Account" : {
+      "Description" : "Account for team2",
+      "Value" : "team2 / yyy"
+    },
+
     "Isucon2ServerURL" : {
       "Description" : "The URL for isucon2 Server",
       "Value" : { "Fn::Join" : ["", [ "http://", { "Fn::GetAtt" : [ "Isucon2Instance", "PublicDnsName" ] }, "/" ]]}

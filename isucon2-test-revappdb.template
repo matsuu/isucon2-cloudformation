@@ -221,6 +221,16 @@
       "Value" : { "Fn::Join" : ["", [ "http://", { "Fn::GetAtt" : [ "TestInstance", "PublicDnsName" ] }, ":5001/" ]]}
     },
 
+    "TestServerManagerAccount" : {
+      "Description" : "Account for manager",
+      "Value" : "manager / foo"
+    },
+
+    "TestServerTeam2Account" : {
+      "Description" : "Account for team2",
+      "Value" : "team2 / yyy"
+    },
+
     "TestServerSSH" : {
       "Description" : "The SSH command for Test Server",
       "Value" : { "Fn::Join" : ["", [ "ssh -i ", { "Ref" : "KeyName" }, ".pem ec2-user@", { "Fn::GetAtt" : [ "TestInstance", "PublicDnsName" ] } ]]}
