@@ -1,7 +1,7 @@
 # AWS CloudFormation templates for isucon2
 
-http://blog.livedoor.jp/techblog/archives/67726489.html
-https://github.com/tagomoris/isucon2
+- http://blog.livedoor.jp/techblog/archives/67726489.html
+- https://github.com/tagomoris/isucon2
 
 # How to use
 
