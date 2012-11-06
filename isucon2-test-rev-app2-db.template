@@ -314,7 +314,7 @@
       "DependsOn" : "TestInstance",
       "Properties" : {
         "Handle" : {"Ref" : "WaitHandle"},
-        "Count" : "4",
+        "Count" : "5",
         "Timeout" : "900"
       }
     }
