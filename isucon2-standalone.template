@@ -57,8 +57,7 @@
         "UserData" : { "Fn::Base64" : { "Fn::Join" : ["",[
             "#!/bin/bash -x","\n",
 
-            "user=\"isucon\"","\n",
-            "useradd \"${user}\"","\n",
+            "user=\"ec2-user\"","\n",
             "home=\"/home/${user}\"","\n",
 
             "yum update -y --skip-broken","\n",
@@ -95,7 +94,7 @@
             "service httpd start","\n",
             "cd ${home}","\n",
             "cat /usr/lib*/python*/site-packages/supervisor*egg/supervisor/skel/sample.conf > /etc/supervisord.conf","\n",
-            "cat isucon2/webapp/etc/supervisord/isucon.conf >> /etc/supervisord.conf","\n",
+            "sed -e \"s:/home/isucon:${home}:\" -e \"/^user/s:=.*:=${user}:\" isucon2/webapp/etc/supervisord/isucon.conf >> /etc/supervisord.conf","\n",
             "cp isucon2/webapp/etc/supervisord_init /etc/init.d/supervisord","\n",
             "cd isucon2/webapp/perl/","\n",
             "perl cpanm -lextlib -n --installdeps .","\n",
