@@ -1,0 +1,293 @@
+{
+  "AWSTemplateFormatVersion" : "2010-09-09",
+
+  "Description" : "isucon2 rev-app2-db",
+
+  "Parameters" : {
+    "KeyName" : {
+      "Description" : "Name of an existing EC2 KeyPair to enable SSH access to the instance",
+      "Type" : "String"
+    },
+
+    "revInstanceType" : {
+      "Description" : "ReverseProxy EC2 instance type",
+      "Type" : "String",
+      "Default" : "m1.small",
+      "AllowedValues" : [ "t1.micro","m1.small","m1.medium","m1.large","m1.xlarge","m2.xlarge","m2.2xlarge","m2.4xlarge","c1.medium","c1.xlarge","cc1.4xlarge","cc2.8xlarge","cg1.4xlarge"],
+      "ConstraintDescription" : "must be a valid EC2 instance type."
+    },
+
+    "appInstanceType" : {
+      "Description" : "ApplicationServer EC2 instance type",
+      "Type" : "String",
+      "Default" : "m1.small",
+      "AllowedValues" : [ "t1.micro","m1.small","m1.medium","m1.large","m1.xlarge","m2.xlarge","m2.2xlarge","m2.4xlarge","c1.medium","c1.xlarge","cc1.4xlarge","cc2.8xlarge","cg1.4xlarge"],
+      "ConstraintDescription" : "must be a valid EC2 instance type."
+    },
+
+    "dbInstanceType" : {
+      "Description" : "DatabaseServer EC2 instance type",
+      "Type" : "String",
+      "Default" : "m1.small",
+      "AllowedValues" : [ "t1.micro","m1.small","m1.medium","m1.large","m1.xlarge","m2.xlarge","m2.2xlarge","m2.4xlarge","c1.medium","c1.xlarge","cc1.4xlarge","cc2.8xlarge","cg1.4xlarge"],
+      "ConstraintDescription" : "must be a valid EC2 instance type."
+    }
+  },
+
+  "Mappings" : {
+    "AWSInstanceType2Arch" : {
+      "t1.micro"    : { "Arch" : "64" },
+      "m1.small"    : { "Arch" : "64" },
+      "m1.medium"   : { "Arch" : "64" },
+      "m1.large"    : { "Arch" : "64" },
+      "m1.xlarge"   : { "Arch" : "64" },
+      "m2.xlarge"   : { "Arch" : "64" },
+      "m2.2xlarge"  : { "Arch" : "64" },
+      "m2.4xlarge"  : { "Arch" : "64" },
+      "c1.medium"   : { "Arch" : "64" },
+      "c1.xlarge"   : { "Arch" : "64" },
+      "cc1.4xlarge" : { "Arch" : "64HVM" },
+      "cc2.8xlarge" : { "Arch" : "64HVM" },
+      "cg1.4xlarge" : { "Arch" : "64HVM" }
+    },
+
+    "AWSRegionArch2AMI" : {
+      "us-east-1"      : { "32" : "ami-a0cd60c9", "64" : "ami-aecd60c7", "64HVM" : "ami-a8cd60c1" },
+      "us-west-2"      : { "32" : "ami-46da5576", "64" : "ami-48da5578", "64HVM" : "NOT_YET_SUPPORTED" },
+      "us-west-1"      : { "32" : "ami-7d4c6938", "64" : "ami-734c6936", "64HVM" : "NOT_YET_SUPPORTED" },
+      "eu-west-1"      : { "32" : "ami-61555115", "64" : "ami-6d555119", "64HVM" : "ami-67555113" },
+      "ap-southeast-1" : { "32" : "ami-220b4a70", "64" : "ami-3c0b4a6e", "64HVM" : "NOT_YET_SUPPORTED" },
+      "ap-northeast-1" : { "32" : "ami-2a19aa2b", "64" : "ami-2819aa29", "64HVM" : "NOT_YET_SUPPORTED" },
+      "sa-east-1"      : { "32" : "ami-f836e8e5", "64" : "ami-fe36e8e3", "64HVM" : "NOT_YET_SUPPORTED" }
+    }
+  },
+
+  "Resources" : {
+    "ReverseProxyInstance" : {
+      "Type" : "AWS::EC2::Instance",
+      "Properties" : {
+        "KeyName" : { "Ref" : "KeyName" },
+        "SecurityGroups" : [ { "Ref" : "InstanceSecurityGroup" } ],
+        "ImageId" : { "Fn::FindInMap" : [ "AWSRegionArch2AMI", { "Ref" : "AWS::Region" },
+                          { "Fn::FindInMap" : [ "AWSInstanceType2Arch", { "Ref" : "revInstanceType" }, "Arch" ] } ] },
+        "InstanceType" : { "Ref" : "revInstanceType" },
+        "UserData" : { "Fn::Base64" : { "Fn::Join" : ["",[
+            "#!/bin/bash -x","\n",
+
+            "yum update -y --skip-broken","\n",
+            "yum install -y --skip-broken httpd","\n",
+            "cat > /etc/httpd/conf.d/proxy_server.conf <<EOF","\n",
+            "ProxyPass / balancer://app/","\n",
+            "ProxyPassReverse / balancer://app/","\n",
+            "<Proxy balancer://app>","\n",
+            "  BalancerMember http://", { "Fn::GetAtt" : [ "Application1Instance", "PrivateIp" ] }, ":5000","\n",
+            "  BalancerMember http://", { "Fn::GetAtt" : [ "Application2Instance", "PrivateIp" ] }, ":5000","\n",
+            "</Proxy>","\n",
+            "EOF","\n",
+            "chkconfig httpd on","\n",
+            "service httpd start","\n",
+            "# All is well so signal success\n",
+            "curl -X PUT -H 'Content-Type:' --data-binary '{\"Status\" : \"SUCCESS\",",
+                                                           "\"Reason\" : \"The ReverseProxyInstance is ready\",",
+                                                           "\"UniqueId\" : \"ReverseProxyInstance\",",
+                                                           "\"Data\" : \"Done\"}' ",
+                  "\"", {"Ref" : "WaitHandle"},"\"\n"
+        ]]}}
+      }
+    },
+
+    "Application1Instance" : {
+      "Type" : "AWS::EC2::Instance",
+      "Properties" : {
+        "KeyName" : { "Ref" : "KeyName" },
+        "SecurityGroups" : [ { "Ref" : "InstanceSecurityGroup" } ],
+        "ImageId" : { "Fn::FindInMap" : [ "AWSRegionArch2AMI", { "Ref" : "AWS::Region" },
+                          { "Fn::FindInMap" : [ "AWSInstanceType2Arch", { "Ref" : "appInstanceType" }, "Arch" ] } ] },
+        "InstanceType" : { "Ref" : "appInstanceType" },
+        "UserData" : { "Fn::Base64" : { "Fn::Join" : ["",[
+            "#!/bin/bash -x","\n",
+
+            "user=\"ec2-user\"","\n",
+            "home=\"/home/${user}\"","\n",
+
+            "yum update -y --skip-broken","\n",
+            "yum install -y --skip-broken git mysql mysql-devel perl-DBD-MySQL perl-DBI perl-DBD-SQLite perl-parent perl-libwww-perl perl-Module-Build perl-Class-Data-Inheritable perl-YAML perl-JSON perl-JSON-XS perl-Module-CoreList perl-ExtUtils-MakeMaker perl-Module-Install perl-Test-Simple perl-Time-HiRes perl-Net-Server perl-Class-Accessor perl-Devel-StackTrace make gcc","\n",
+            "easy_install supervisor","\n",
+            "cd ${home}","\n",
+            "git clone git://github.com/tagomoris/isucon2.git","\n",
+            "cat /usr/lib*/python*/site-packages/supervisor*egg/supervisor/skel/sample.conf > /etc/supervisord.conf","\n",
+            "sed -e \"s:/home/isucon:${home}:\" -e \"/^user/s:=.*:=${user}:\" isucon2/webapp/etc/supervisord/isucon.conf >> /etc/supervisord.conf","\n",
+            "cp isucon2/webapp/etc/supervisord_init /etc/init.d/supervisord","\n",
+            "cd isucon2/webapp/perl/","\n",
+            "perl cpanm -lextlib -n --installdeps .","\n",
+            "cd ${home}","\n",
+            "cp -a isucon2/webapp app","\n",
+            "cp -a isucon2/webapp/etc etc","\n",
+            "sed -i -e '/host/s/127\\.0\\.0\\.1/", { "Fn::GetAtt" : [ "DatabaseInstance", "PrivateIp" ] }, "/' app/config/common.local.json","\n",
+            "sed -i -e '/PATH/,/rbenv init/d' -e '/ISUCON_ENV/s/=.*/=local/' etc/env.sh","\n",
+            "chmod +x etc/env.sh","\n",
+            "chown -R ${user}:${user} app etc","\n",
+            "rm -rf isucon2","\n",
+            "chkconfig supervisord on","\n",
+            "service supervisord start","\n",
+
+            "# All is well so signal success\n",
+            "curl -X PUT -H 'Content-Type:' --data-binary '{\"Status\" : \"SUCCESS\",",
+                                                           "\"Reason\" : \"The Application1Instance is ready\",",
+                                                           "\"UniqueId\" : \"Application1Instance\",",
+                                                           "\"Data\" : \"Done\"}' ",
+                  "\"", {"Ref" : "WaitHandle"},"\"\n"
+        ]]}}
+      }
+    },
+
+    "Application2Instance" : {
+      "Type" : "AWS::EC2::Instance",
+      "Properties" : {
+        "KeyName" : { "Ref" : "KeyName" },
+        "SecurityGroups" : [ { "Ref" : "InstanceSecurityGroup" } ],
+        "ImageId" : { "Fn::FindInMap" : [ "AWSRegionArch2AMI", { "Ref" : "AWS::Region" },
+                          { "Fn::FindInMap" : [ "AWSInstanceType2Arch", { "Ref" : "appInstanceType" }, "Arch" ] } ] },
+        "InstanceType" : { "Ref" : "appInstanceType" },
+        "UserData" : { "Fn::Base64" : { "Fn::Join" : ["",[
+            "#!/bin/bash -x","\n",
+
+            "user=\"ec2-user\"","\n",
+            "home=\"/home/${user}\"","\n",
+
+            "yum update -y --skip-broken","\n",
+            "yum install -y --skip-broken git mysql mysql-devel perl-DBD-MySQL perl-DBI perl-DBD-SQLite perl-parent perl-libwww-perl perl-Module-Build perl-Class-Data-Inheritable perl-YAML perl-JSON perl-JSON-XS perl-Module-CoreList perl-ExtUtils-MakeMaker perl-Module-Install perl-Test-Simple perl-Time-HiRes perl-Net-Server perl-Class-Accessor perl-Devel-StackTrace make gcc","\n",
+            "easy_install supervisor","\n",
+            "cd ${home}","\n",
+            "git clone git://github.com/tagomoris/isucon2.git","\n",
+            "cat /usr/lib*/python*/site-packages/supervisor*egg/supervisor/skel/sample.conf > /etc/supervisord.conf","\n",
+            "sed -e \"s:/home/isucon:${home}:\" -e \"/^user/s:=.*:=${user}:\" isucon2/webapp/etc/supervisord/isucon.conf >> /etc/supervisord.conf","\n",
+            "cp isucon2/webapp/etc/supervisord_init /etc/init.d/supervisord","\n",
+            "cd isucon2/webapp/perl/","\n",
+            "perl cpanm -lextlib -n --installdeps .","\n",
+            "cd ${home}","\n",
+            "cp -a isucon2/webapp app","\n",
+            "cp -a isucon2/webapp/etc etc","\n",
+            "sed -i -e '/host/s/127\\.0\\.0\\.1/", { "Fn::GetAtt" : [ "DatabaseInstance", "PrivateIp" ] }, "/' app/config/common.local.json","\n",
+            "sed -i -e '/PATH/,/rbenv init/d' -e '/ISUCON_ENV/s/=.*/=local/' etc/env.sh","\n",
+            "chmod +x etc/env.sh","\n",
+            "chown -R ${user}:${user} app etc","\n",
+            "rm -rf isucon2","\n",
+            "chkconfig supervisord on","\n",
+            "service supervisord start","\n",
+
+            "# All is well so signal success\n",
+            "curl -X PUT -H 'Content-Type:' --data-binary '{\"Status\" : \"SUCCESS\",",
+                                                           "\"Reason\" : \"The Application2Instance is ready\",",
+                                                           "\"UniqueId\" : \"Application2Instance\",",
+                                                           "\"Data\" : \"Done\"}' ",
+                  "\"", {"Ref" : "WaitHandle"},"\"\n"
+        ]]}}
+      }
+    },
+
+    "DatabaseInstance" : {
+      "Type" : "AWS::EC2::Instance",
+      "Properties" : {
+        "KeyName" : { "Ref" : "KeyName" },
+        "SecurityGroups" : [ { "Ref" : "InstanceSecurityGroup" } ],
+        "ImageId" : { "Fn::FindInMap" : [ "AWSRegionArch2AMI", { "Ref" : "AWS::Region" },
+                          { "Fn::FindInMap" : [ "AWSInstanceType2Arch", { "Ref" : "dbInstanceType" }, "Arch" ] } ] },
+        "InstanceType" : { "Ref" : "dbInstanceType" },
+        "UserData" : { "Fn::Base64" : { "Fn::Join" : ["",[
+            "#!/bin/bash -x","\n",
+
+            "yum update -y --skip-broken","\n",
+            "yum install -y --skip-broken git mysql-server","\n",
+            "cd ${home}","\n",
+            "git clone git://github.com/tagomoris/isucon2.git","\n",
+            "sed -e '/^innodb_buffer_pool_size/s/=.*/= 128M/' -e '/^max_connections/s/=.*/= 256/' isucon2/webapp/config/database/my.cnf > /etc/my.cnf","\n",
+            "chkconfig mysqld on","\n",
+            "service mysqld start","\n",
+            "cat isucon2/webapp/config/database/isucon2.sql | mysql","\n",
+            "cat isucon2/webapp/config/database/initial_data.sql | mysql","\n",
+            "cat <<EOF | mysql","\n",
+            "CREATE USER 'isucon2app'@'%' IDENTIFIED BY 'isunageruna';","\n",
+            "GRANT ALL ON isucon2.* TO 'isucon2app'@'%';","\n",
+            "CREATE USER 'isucon2app'@'localhost' IDENTIFIED BY 'isunageruna';","\n",
+            "GRANT ALL ON isucon2.* TO 'isucon2app'@'localhost';","\n",
+            "EOF","\n",
+            "rm -rf isucon2","\n",
+
+            "# All is well so signal success\n",
+            "curl -X PUT -H 'Content-Type:' --data-binary '{\"Status\" : \"SUCCESS\",",
+                                                           "\"Reason\" : \"The DatabaseInstance is ready\",",
+                                                           "\"UniqueId\" : \"DatabaseInstance\",",
+                                                           "\"Data\" : \"Done\"}' ",
+                  "\"", {"Ref" : "WaitHandle"},"\"\n"
+        ]]}}
+      }
+    },
+
+    "InstanceSecurityGroup" : {
+      "Type" : "AWS::EC2::SecurityGroup",
+      "Properties" : {
+        "GroupDescription" : "EC2 Instance access",
+        "SecurityGroupIngress" : [ 
+          {"IpProtocol" : "tcp", "FromPort" : "22", "ToPort" : "22", "CidrIp" : "0.0.0.0/0" },
+          {"IpProtocol" : "tcp", "FromPort" : "80", "ToPort" : "80", "CidrIp" : "0.0.0.0/0" },
+          {"IpProtocol" : "tcp", "FromPort" : "5000", "ToPort" : "5000", "CidrIp" : "0.0.0.0/0" },
+          {"IpProtocol" : "tcp", "FromPort" : "5001", "ToPort" : "5001", "CidrIp" : "0.0.0.0/0" }
+        ]
+      }
+    },
+
+    "InstanceSecurityGroupIngress" : {
+      "Type" : "AWS::EC2::SecurityGroupIngress",
+      "Properties" : {
+        "GroupName" : { "Ref" : "InstanceSecurityGroup" },
+        "IpProtocol" : "tcp",
+        "FromPort" : "3306",
+        "ToPort" : "3306",
+        "SourceSecurityGroupName" : { "Ref" : "InstanceSecurityGroup" }
+      }
+    },
+
+    "WaitHandle" : {
+      "Type" : "AWS::CloudFormation::WaitConditionHandle"
+    },
+
+    "WaitCondition" : {
+      "Type" : "AWS::CloudFormation::WaitCondition",
+      "DependsOn" : "ReverseProxyInstance",
+      "Properties" : {
+        "Handle" : {"Ref" : "WaitHandle"},
+        "Count" : "5",
+        "Timeout" : "900"
+      }
+    }
+  },
+
+  "Outputs" : {
+    "ReverseProxyServerURL" : {
+      "Description" : "The URL for rev Server",
+      "Value" : { "Fn::Join" : ["", [ "http://", { "Fn::GetAtt" : [ "ReverseProxyInstance", "PublicDnsName" ] }, "/" ]]}
+    },
+
+    "ReverseProxyServerSSH" : {
+      "Description" : "The SSH command for rev Server",
+      "Value" : { "Fn::Join" : ["", [ "ssh -i ", { "Ref" : "KeyName" }, ".pem ec2-user@", { "Fn::GetAtt" : [ "ReverseProxyInstance", "PublicDnsName" ] } ]]}
+    },
+
+    "Application1ServerSSH" : {
+      "Description" : "The SSH command for app1 Server",
+      "Value" : { "Fn::Join" : ["", [ "ssh -i ", { "Ref" : "KeyName" }, ".pem ec2-user@", { "Fn::GetAtt" : [ "Application1Instance", "PublicDnsName" ] } ]]}
+    },
+
+    "Application2ServerSSH" : {
+      "Description" : "The SSH command for app2 Server",
+      "Value" : { "Fn::Join" : ["", [ "ssh -i ", { "Ref" : "KeyName" }, ".pem ec2-user@", { "Fn::GetAtt" : [ "Application2Instance", "PublicDnsName" ] } ]]}
+    },
+
+    "DatabaseServerSSH" : {
+      "Description" : "The SSH command for db Server",
+      "Value" : { "Fn::Join" : ["", [ "ssh -i ", { "Ref" : "KeyName" }, ".pem ec2-user@", { "Fn::GetAtt" : [ "DatabaseInstance", "PublicDnsName" ] } ]]}
+    }
+  }
+}
+
