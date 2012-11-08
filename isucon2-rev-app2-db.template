@@ -257,7 +257,7 @@
       "DependsOn" : "ReverseProxyInstance",
       "Properties" : {
         "Handle" : {"Ref" : "WaitHandle"},
-        "Count" : "5",
+        "Count" : "4",
         "Timeout" : "900"
       }
     }
